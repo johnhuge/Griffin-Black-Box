@@ -1,5 +1,26 @@
 #! /usr/bin/env python3
 
+# class Process(multiprocessing.Process):
+#     def __init__(self, *args, **kwargs):
+#         multiprocessing.Process.__init__(self, *args, **kwargs)
+#         self._pconn, self._cconn = multiprocessing.Pipe()
+#         self._exception = None
+
+#     def run(self):
+#         try:
+#             multiprocessing.Process.run(self)
+#             self._cconn.send(None)
+#         except Exception as e:
+#             tb = traceback.format_exc()
+#             self._cconn.send((e, tb))
+#             # raise e  # You can still rise this exception if you need to
+
+#     @property
+#     def exception(self):
+#         if self._pconn.poll():
+#             self._exception = self._pconn.recv()
+#         return self._exception
+
 def createDefaultCfg(): 
 	
 	with open('settings.cfg', 'w') as f:
@@ -131,35 +152,57 @@ def startGui(GuiPipeGuiEnd):
 
 def main():
 
-	if not os.path.exists('settings.cfg'):				#TODO
+	if not os.path.exists('settings.cfg'):
 		createDefaultCfg()
 
-	if not os.path.exists('logs/'):				#TODO
+	if not os.path.exists('logs/'):
 		createLogsFolder()
 
 
 	GuiPipeGuiEnd, GuiPipeSerialEnd = multiprocessing.Pipe()
 	FHPipeFHEnd, FHPipeSerialEnd = multiprocessing.Pipe()
 
-	SHProcess = multiprocessing.Process(target=startSerial, daemon = True, name = "__SHProcess__", args=(GuiPipeSerialEnd, FHPipeSerialEnd))
-	FHProcess = multiprocessing.Process(target=startFH, daemon = True, name = "__FHProcess__", args=(FHPipeFHEnd,))
-	GuiProcess = multiprocessing.Process(target=startGui, daemon = True, name = "__GuiProcess__", args=(GuiPipeGuiEnd,))
+	SHProcess = Process.Process(target=startSerial, daemon = True, name = "__SHProcess__", args=(GuiPipeSerialEnd, FHPipeSerialEnd))
+	FHProcess = Process.Process(target=startFH, daemon = True, name = "__FHProcess__", args=(FHPipeFHEnd,))
+	GuiProcess = Process.Process(target=startGui, daemon = True, name = "__GuiProcess__", args=(GuiPipeGuiEnd,))
 
 	SHProcess.start()
 	FHProcess.start()
-	GuiProcess.start()
 
-	GuiProcess.join()
+	while True:
+		GuiProcess.start()
+		GuiProcess.join()
+
+		if GuiProcess.exception:
+			error, traceback = GuiProcess.exception
+			print(error)
+			print(traceback)
+
+			if str(error) == 'accessing settings':
+				print('okay modifichiamo')
+				changeSettingsInstance = changeSettingstest.ChangeSettings()
+				changeSettingsInstance.main()
+				GuiProcess = Process.Process(target=startGui, daemon = True, name = "__GuiProcess__", args=(GuiPipeGuiEnd,))
+
+			else:
+				return
+		else:
+			return
+
 
 
 if __name__ == '__main__':
 	import multiprocessing
+	import Process
 	import os
+	import changeSettingstest
 
 	main()
 
 if __name__ == 'launcher':
 	import multiprocessing
+	import Process
 	import os
+	import changeSettingstest
 
 	main()
